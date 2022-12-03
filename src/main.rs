@@ -67,6 +67,9 @@ impl<F: FieldExt> ValidECPointChip<F> {
         y: Value<F>,
         offset: usize,
     ) -> Result<(), Error> {
-        todo!()
+        region.assign_advice(|| "Assign x", self.config.x, offset, || x)?;
+        region.assign_advice(|| "Assign y", self.config.y, offset, || y)?;
+
+        Ok(())
     }
 }
