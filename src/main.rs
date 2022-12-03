@@ -2,6 +2,7 @@ use halo2_proofs::{
     arithmetic::FieldExt,
     circuit::{Region, Value},
     plonk::*,
+    poly::Rotation,
 };
 
 fn main() {
@@ -26,8 +27,37 @@ impl<F: FieldExt> ValidECPointChip<F> {
         ValidECPointChip { config }
     }
 
-    pub fn configure(meta: &mut ConstraintSystem<F>) -> ValidECPointConfig<F> {
-        todo!()
+    pub fn configure(
+        meta: &mut ConstraintSystem<F>,
+        q_enable: impl FnOnce(&mut VirtualCells<'_, F>) -> Expression<F>,
+        x: Column<Advice>,
+        y: Column<Advice>,
+    ) -> ValidECPointConfig<F> {
+        let mut is_valid_expr = Expression::Constant(F::zero());
+
+        meta.create_gate("is_valid_pasta_ec_point", |meta| {
+            //
+            // valid | x_value |  y_value  |   y^2 = x^3 + 5   |
+            // -------------------------------------------------
+            //  yes  |   x     |     y     |          0        |
+            //   no  |   x     |     y     |          1        |
+            //
+
+            let q_enable = q_enable(meta);
+            let x = meta.query_advice(x, Rotation::cur());
+            let y = meta.query_advice(y, Rotation::cur());
+
+            is_valid_expr =
+                y.square() - (x.clone() * x.square()) - Expression::Constant(F::from_u128(5));
+
+            vec![q_enable * is_valid_expr.clone()]
+        });
+
+        ValidECPointConfig {
+            x,
+            y,
+            is_valid_expr,
+        }
     }
 
     pub fn assign(
