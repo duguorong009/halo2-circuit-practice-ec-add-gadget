@@ -1,6 +1,8 @@
+use std::marker::PhantomData;
+
 use halo2_proofs::{
     arithmetic::FieldExt,
-    circuit::{Region, Value},
+    circuit::{Layouter, Region, Value},
     plonk::*,
     poly::Rotation,
 };
@@ -71,5 +73,78 @@ impl<F: FieldExt> ValidECPointChip<F> {
         region.assign_advice(|| "Assign y", self.config.y, offset, || y)?;
 
         Ok(())
+    }
+}
+
+#[derive(Debug)]
+pub struct ECPointsAddConfig {
+    pub x: Column<Advice>,
+    pub y: Column<Advice>,
+
+    pub q_enable: Selector,
+}
+
+pub struct ECPointsAddChip<F> {
+    pub config: ECPointsAddConfig,
+    _marker: PhantomData<F>,
+}
+
+impl<F: FieldExt> ECPointsAddChip<F> {
+    pub fn construct(config: ECPointsAddConfig) -> Self {
+        Self {
+            config,
+            _marker: PhantomData,
+        }
+    }
+
+    pub fn configure(
+        meta: &mut ConstraintSystem<F>,
+        x: Column<Advice>,
+        y: Column<Advice>,
+    ) -> ECPointsAddConfig {
+        let q_enable = meta.selector();
+
+        let is_valid_ec_point =
+            ValidECPointChip::configure(meta, |meta| meta.query_selector(q_enable), x, y);
+
+        meta.create_gate("(x, y) belongs to EC?", |meta| {
+            //
+            //   q_add_enable  |  q_valid_check_enable |   x   |   y   |   offset   |
+            //  ---------------------------------------------------------------------
+            //        1        |         1             |  p_x  |  p_y  |     0      |
+            //        0        |         1             |  q_x  |  q_y  |     1      |
+            //        0        |         1             |  r_x  |  r_y  |     2      |
+            //
+
+            let q_enable = meta.query_selector(q_enable);
+
+            let x = meta.query_advice(x, Rotation(0));
+            let y = meta.query_advice(y, Rotation(0));
+
+            todo!();
+
+            // vec![q_enable * (is_valid_ec_point.is_valid_expr)]
+        });
+
+        ECPointsAddConfig { x, y, q_enable }
+    }
+
+    pub fn assign(
+        &self,
+        mut layouter: impl Layouter<F>,
+        x: Value<F>,
+        y: Value<F>,
+        offset: usize,
+    ) -> Result<(), Error> {
+        layouter.assign_region(
+            || "Assign P point",
+            |mut region| {
+                // self.config.q_enable.enable(&mut region, offset)?;
+                // region.assign_advice(|| "x", self.config.x, offset, || x)?;
+                // region.assign_advice(|| "y", self.config.y, offset, || y)?;
+
+                Ok(())
+            },
+        )
     }
 }
