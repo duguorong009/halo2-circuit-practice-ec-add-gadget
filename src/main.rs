@@ -278,19 +278,47 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use halo2_proofs::{dev::MockProver, pasta::Fp as F};
+    use halo2_proofs::{
+        arithmetic::CurveAffine,
+        dev::MockProver,
+        pasta::{group::Group, pallas, EpAffine},
+    };
 
     #[test]
     fn test_ec_points_add() {
         let k = 4;
 
+        let generator = pallas::Point::generator();
+        let generator_affine = EpAffine::from(generator);
+        let double_gen_affine = EpAffine::from(generator.double());
+
+        let x_val = generator_affine
+            .coordinates()
+            .map(|v| v.x().clone())
+            .unwrap();
+        let y_val = generator_affine
+            .coordinates()
+            .map(|v| v.y().clone())
+            .unwrap();
+
+        let _2x_val = double_gen_affine
+            .coordinates()
+            .map(|v| v.x().clone())
+            .unwrap();
+        let _2y_val = double_gen_affine
+            .coordinates()
+            .map(|v| v.y().clone())
+            .unwrap();
+
         let circuit = TestCircuit {
-            p_x: Value::known(F::from(5)),
-            p_y: Value::known(F::from(11)),
-            q_x: Value::known(F::from(5)),
-            q_y: Value::known(F::from(11)),
-            r_x: Value::known(F::from(15)),
-            r_y: Value::known(F::from(5)),
+            p_x: Value::known(x_val),
+            p_y: Value::known(y_val),
+
+            q_x: Value::known(x_val),
+            q_y: Value::known(y_val),
+
+            r_x: Value::known(_2x_val),
+            r_y: Value::known(_2y_val),
         };
 
         let public_input = vec![];
