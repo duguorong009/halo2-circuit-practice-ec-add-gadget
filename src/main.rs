@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 
 use halo2_proofs::{
     arithmetic::FieldExt,
-    circuit::{Layouter, Region, Value},
+    circuit::{floor_planner::V1, Layouter, Region, Value},
     plonk::*,
     poly::Rotation,
 };
@@ -147,21 +147,24 @@ impl<F: FieldExt> ECPointsAddChip<F> {
             let r_x = meta.query_advice(x, Rotation(2));
             let r_y = meta.query_advice(y, Rotation(2));
 
-            // EC point add formula
+            // EC point add formula: https://trustica.cz/en/2018/03/15/elliptic-curves-point-addition/
             //      d = (q_y - p_y) / (q_x - p_x)
             //      r_x = d^2 - p_x - q_x
             //      r_y = -p_y - d(r_x - p_x)
 
-            let d = (q_y - p_y) / (q_x - p_x);
-            let expected_r_x = d.square() - p_x - q_x;
-            let expected_r_y = -p_y - d * (expected_r_x - p_x);
-
+            // Derived version: https://zcash.github.io/halo2/design/gadgets/ecc/addition.html#incomplete-addition
+            //      q_add_enable * ((r_x + q_x + p_x) * (p_x - q_x) ^ 2 - (p_y - q_y)^2) = 0
+            //      q_add_enable * ((r_y + q_y)*(p_x - q_x) - (p_y - q_y)*(q_x - r_x)) = 0
             vec![
                 valid_0.is_valid_expr,
                 valid_1.is_valid_expr,
                 valid_2.is_valid_expr,
-                q_add_enable * (r_x - expected_r_x),
-                q_add_enable * (r_y - expected_r_y),
+                q_add_enable.clone()
+                    * ((r_x.clone() + q_x.clone() + p_x.clone())
+                        * (p_x.clone() - q_x.clone()).square()
+                        - (p_y.clone() - q_y.clone()).square()),
+                q_add_enable
+                    * ((r_y + q_y.clone()) * (p_x - q_x.clone()) - (p_y - q_y) * (q_x - r_x)),
             ]
         });
 
@@ -183,9 +186,15 @@ impl<F: FieldExt> ECPointsAddChip<F> {
         layouter.assign_region(
             || "Assign P point",
             |mut region| {
-                // self.config.q_enable.enable(&mut region, offset)?;
-                // region.assign_advice(|| "x", self.config.x, offset, || x)?;
-                // region.assign_advice(|| "y", self.config.y, offset, || y)?;
+                region.assign_advice(|| "x", self.config.x, offset, || x)?;
+                region.assign_advice(|| "y", self.config.y, offset, || y)?;
+
+                region.assign_fixed(
+                    || "check if valid EC point",
+                    self.config.q_valid_check_enable,
+                    offset,
+                    || Value::known(F::one()),
+                )?;
 
                 Ok(())
             },
@@ -206,7 +215,7 @@ pub struct TestCircuit<F: FieldExt> {
 impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
     type Config = ECPointsAddConfig;
 
-    type FloorPlanner;
+    type FloorPlanner = V1;
 
     fn without_witnesses(&self) -> Self {
         todo!()
