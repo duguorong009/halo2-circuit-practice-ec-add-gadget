@@ -325,5 +325,16 @@ mod tests {
 
         let prover = MockProver::run(k, &circuit, public_input).unwrap();
         prover.assert_satisfied();
+
+        // Plot the circuit
+        use plotters::prelude::*;
+        let root = BitMapBackend::new("EC-points-add-layout.png", (1024, 1024)).into_drawing_area();
+        root.fill(&WHITE).unwrap();
+        let root = root
+            .titled("EC points add circuit test Layout", ("sans-serif", 60))
+            .unwrap();
+        halo2_proofs::dev::CircuitLayout::default()
+            .render(k, &circuit, &root)
+            .unwrap();
     }
 }
