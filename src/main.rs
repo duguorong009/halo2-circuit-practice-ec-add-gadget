@@ -266,3 +266,28 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use halo2_proofs::{dev::MockProver, pasta::Fp as F};
+
+    #[test]
+    fn test_ec_points_add() {
+        let k = 4;
+
+        let circuit = TestCircuit {
+            p_x: Value::known(F::from(5)),
+            p_y: Value::known(F::from(11)),
+            q_x: Value::known(F::from(5)),
+            q_y: Value::known(F::from(11)),
+            r_x: Value::known(F::from(15)),
+            r_y: Value::known(F::from(5)),
+        };
+
+        let public_input = vec![];
+
+        let prover = MockProver::run(k, &circuit, public_input).unwrap();
+        prover.assert_satisfied();
+    }
+}
