@@ -140,6 +140,10 @@ impl<F: FieldExt> ECPointsAddChip<F> {
 
             let q_add_enable = meta.query_selector(q_add_enable);
 
+            let q_valid_check_enable_0 = meta.query_fixed(q_valid_check_enable, Rotation(0));
+            let q_valid_check_enable_1 = meta.query_fixed(q_valid_check_enable, Rotation(1));
+            let q_valid_check_enable_2 = meta.query_fixed(q_valid_check_enable, Rotation(2));
+
             let p_x = meta.query_advice(x, Rotation(0));
             let p_y = meta.query_advice(y, Rotation(0));
             let q_x = meta.query_advice(x, Rotation(1));
@@ -156,9 +160,9 @@ impl<F: FieldExt> ECPointsAddChip<F> {
             //      q_add_enable * ((r_x + q_x + p_x) * (p_x - q_x) ^ 2 - (p_y - q_y)^2) = 0
             //      q_add_enable * ((r_y + q_y)*(p_x - q_x) - (p_y - q_y)*(q_x - r_x)) = 0
             vec![
-                valid_0.is_valid_expr,
-                valid_1.is_valid_expr,
-                valid_2.is_valid_expr,
+                q_valid_check_enable_0 * valid_0.is_valid_expr,
+                q_valid_check_enable_1 * valid_1.is_valid_expr,
+                q_valid_check_enable_2 * valid_2.is_valid_expr,
                 q_add_enable.clone()
                     * ((r_x.clone() + q_x.clone() + p_x.clone())
                         * (p_x.clone() - q_x.clone()).square()
@@ -179,32 +183,47 @@ impl<F: FieldExt> ECPointsAddChip<F> {
     pub fn assign(
         &self,
         mut layouter: impl Layouter<F>,
-        x: Value<F>,
-        y: Value<F>,
-        offset: usize,
+        p_x: Value<F>,
+        p_y: Value<F>,
+        q_x: Value<F>,
+        q_y: Value<F>,
+        r_x: Value<F>,
+        r_y: Value<F>,
     ) -> Result<(), Error> {
         layouter.assign_region(
-            || "Assign P point",
+            || "Assign points",
             |mut region| {
-                region.assign_advice(|| "x", self.config.x, offset, || x)?;
-                region.assign_advice(|| "y", self.config.y, offset, || y)?;
+                self.config.q_add_enable.enable(&mut region, 0)?;
 
+                region.assign_advice(|| "p_x", self.config.x, 0, || p_x)?;
+                region.assign_advice(|| "p_y", self.config.y, 0, || p_y)?;
                 region.assign_fixed(
-                    || "check if valid EC point",
+                    || "check if P(x, y) is valid EC point",
                     self.config.q_valid_check_enable,
-                    offset,
+                    0,
+                    || Value::known(F::one()),
+                )?;
+
+                region.assign_advice(|| "q_x", self.config.x, 1, || q_x)?;
+                region.assign_advice(|| "q_y", self.config.y, 1, || q_y)?;
+                region.assign_fixed(
+                    || "check if Q(x, y) is valid EC point",
+                    self.config.q_valid_check_enable,
+                    1,
+                    || Value::known(F::one()),
+                )?;
+
+                region.assign_advice(|| "r_x", self.config.x, 2, || r_x)?;
+                region.assign_advice(|| "r_y", self.config.y, 2, || r_y)?;
+                region.assign_fixed(
+                    || "check if R(x, y) is valid EC point",
+                    self.config.q_valid_check_enable,
+                    2,
                     || Value::known(F::one()),
                 )?;
 
                 Ok(())
             },
-        )
-    }
-
-    pub fn enable_add(&self, mut layouter: impl Layouter<F>, offset: usize) -> Result<(), Error> {
-        layouter.assign_region(
-            || "enable add",
-            |mut region| self.config.q_add_enable.enable(&mut region, offset),
         )
     }
 }
@@ -242,25 +261,14 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
     ) -> Result<(), Error> {
         let cs = ECPointsAddChip::construct(config);
 
-        cs.enable_add(layouter.namespace(|| "enable add operation"), 0)?;
-
         cs.assign(
-            layouter.namespace(|| "assign P(x, y)"),
+            layouter.namespace(|| "assign points"),
             self.p_x,
             self.p_y,
-            0,
-        )?;
-        cs.assign(
-            layouter.namespace(|| "assign Q(x, y)"),
             self.q_x,
             self.q_y,
-            1,
-        )?;
-        cs.assign(
-            layouter.namespace(|| "assign R(x, y)"),
             self.r_x,
             self.r_y,
-            2,
         )?;
 
         Ok(())
