@@ -200,6 +200,13 @@ impl<F: FieldExt> ECPointsAddChip<F> {
             },
         )
     }
+
+    pub fn enable_add(&self, mut layouter: impl Layouter<F>, offset: usize) -> Result<(), Error> {
+        layouter.assign_region(
+            || "enable add",
+            |mut region| self.config.q_add_enable.enable(&mut region, offset),
+        )
+    }
 }
 
 #[derive(Debug, Clone, Default)]
@@ -228,7 +235,34 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
         ECPointsAddChip::configure(meta, x, y)
     }
 
-    fn synthesize(&self, config: Self::Config, layouter: impl Layouter<F>) -> Result<(), Error> {
-        todo!()
+    fn synthesize(
+        &self,
+        config: Self::Config,
+        mut layouter: impl Layouter<F>,
+    ) -> Result<(), Error> {
+        let cs = ECPointsAddChip::construct(config);
+
+        cs.enable_add(layouter.namespace(|| "enable add operation"), 0)?;
+
+        cs.assign(
+            layouter.namespace(|| "assign P(x, y)"),
+            self.p_x,
+            self.p_y,
+            0,
+        )?;
+        cs.assign(
+            layouter.namespace(|| "assign Q(x, y)"),
+            self.q_x,
+            self.q_y,
+            1,
+        )?;
+        cs.assign(
+            layouter.namespace(|| "assign R(x, y)"),
+            self.r_x,
+            self.r_y,
+            2,
+        )?;
+
+        Ok(())
     }
 }
