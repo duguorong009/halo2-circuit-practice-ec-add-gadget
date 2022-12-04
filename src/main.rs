@@ -34,6 +34,7 @@ impl<F: FieldExt> ValidECPointChip<F> {
         q_enable: impl FnOnce(&mut VirtualCells<'_, F>) -> Expression<F>,
         x: Column<Advice>,
         y: Column<Advice>,
+        offset: usize,
     ) -> ValidECPointConfig<F> {
         let mut is_valid_expr = Expression::Constant(F::zero());
 
@@ -46,8 +47,8 @@ impl<F: FieldExt> ValidECPointChip<F> {
             //
 
             let q_enable = q_enable(meta);
-            let x = meta.query_advice(x, Rotation::cur());
-            let y = meta.query_advice(y, Rotation::cur());
+            let x = meta.query_advice(x, Rotation(offset as i32));
+            let y = meta.query_advice(y, Rotation(offset as i32));
 
             is_valid_expr =
                 y.square() - (x.clone() * x.square()) - Expression::Constant(F::from_u128(5));
@@ -76,12 +77,13 @@ impl<F: FieldExt> ValidECPointChip<F> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ECPointsAddConfig {
     pub x: Column<Advice>,
     pub y: Column<Advice>,
 
-    pub q_enable: Selector,
+    pub q_add_enable: Selector,
+    pub q_valid_check_enable: Column<Fixed>,
 }
 
 pub struct ECPointsAddChip<F> {
@@ -102,12 +104,32 @@ impl<F: FieldExt> ECPointsAddChip<F> {
         x: Column<Advice>,
         y: Column<Advice>,
     ) -> ECPointsAddConfig {
-        let q_enable = meta.selector();
+        let q_add_enable = meta.selector();
+        let q_valid_check_enable = meta.fixed_column();
 
-        let is_valid_ec_point =
-            ValidECPointChip::configure(meta, |meta| meta.query_selector(q_enable), x, y);
+        let valid_0 = ValidECPointChip::configure(
+            meta,
+            |meta| meta.query_fixed(q_valid_check_enable, Rotation(0)),
+            x,
+            y,
+            0,
+        );
+        let valid_1 = ValidECPointChip::configure(
+            meta,
+            |meta| meta.query_fixed(q_valid_check_enable, Rotation(1)),
+            x,
+            y,
+            1,
+        );
+        let valid_2 = ValidECPointChip::configure(
+            meta,
+            |meta| meta.query_fixed(q_valid_check_enable, Rotation(2)),
+            x,
+            y,
+            2,
+        );
 
-        meta.create_gate("(x, y) belongs to EC?", |meta| {
+        meta.create_gate("P(x, y) + Q(x, y) = R(x, y)", |meta| {
             //
             //   q_add_enable  |  q_valid_check_enable |   x   |   y   |   offset   |
             //  ---------------------------------------------------------------------
@@ -116,17 +138,39 @@ impl<F: FieldExt> ECPointsAddChip<F> {
             //        0        |         1             |  r_x  |  r_y  |     2      |
             //
 
-            let q_enable = meta.query_selector(q_enable);
+            let q_add_enable = meta.query_selector(q_add_enable);
 
-            let x = meta.query_advice(x, Rotation(0));
-            let y = meta.query_advice(y, Rotation(0));
+            let p_x = meta.query_advice(x, Rotation(0));
+            let p_y = meta.query_advice(y, Rotation(0));
+            let q_x = meta.query_advice(x, Rotation(1));
+            let q_y = meta.query_advice(y, Rotation(1));
+            let r_x = meta.query_advice(x, Rotation(2));
+            let r_y = meta.query_advice(y, Rotation(2));
 
-            todo!();
+            // EC point add formula
+            //      d = (q_y - p_y) / (q_x - p_x)
+            //      r_x = d^2 - p_x - q_x
+            //      r_y = -p_y - d(r_x - p_x)
 
-            // vec![q_enable * (is_valid_ec_point.is_valid_expr)]
+            let d = (q_y - p_y) / (q_x - p_x);
+            let expected_r_x = d.square() - p_x - q_x;
+            let expected_r_y = -p_y - d * (expected_r_x - p_x);
+
+            vec![
+                valid_0.is_valid_expr,
+                valid_1.is_valid_expr,
+                valid_2.is_valid_expr,
+                q_add_enable * (r_x - expected_r_x),
+                q_add_enable * (r_y - expected_r_y),
+            ]
         });
 
-        ECPointsAddConfig { x, y, q_enable }
+        ECPointsAddConfig {
+            x,
+            y,
+            q_add_enable,
+            q_valid_check_enable,
+        }
     }
 
     pub fn assign(
@@ -146,5 +190,33 @@ impl<F: FieldExt> ECPointsAddChip<F> {
                 Ok(())
             },
         )
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct TestCircuit<F: FieldExt> {
+    pub p_x: Value<F>,
+    pub p_y: Value<F>,
+    pub q_x: Value<F>,
+    pub q_y: Value<F>,
+    pub r_x: Value<F>,
+    pub r_y: Value<F>,
+}
+
+impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
+    type Config = ECPointsAddConfig;
+
+    type FloorPlanner;
+
+    fn without_witnesses(&self) -> Self {
+        todo!()
+    }
+
+    fn configure(meta: &mut ConstraintSystem<F>) -> Self::Config {
+        todo!()
+    }
+
+    fn synthesize(&self, config: Self::Config, layouter: impl Layouter<F>) -> Result<(), Error> {
+        todo!()
     }
 }
