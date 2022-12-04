@@ -202,7 +202,7 @@ impl<F: FieldExt> ECPointsAddChip<F> {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct TestCircuit<F: FieldExt> {
     pub p_x: Value<F>,
     pub p_y: Value<F>,
@@ -218,11 +218,14 @@ impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
     type FloorPlanner = V1;
 
     fn without_witnesses(&self) -> Self {
-        todo!()
+        Self::default()
     }
 
     fn configure(meta: &mut ConstraintSystem<F>) -> Self::Config {
-        todo!()
+        let x = meta.advice_column();
+        let y = meta.advice_column();
+
+        ECPointsAddChip::configure(meta, x, y)
     }
 
     fn synthesize(&self, config: Self::Config, layouter: impl Layouter<F>) -> Result<(), Error> {
