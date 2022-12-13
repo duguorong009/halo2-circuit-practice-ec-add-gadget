@@ -262,6 +262,44 @@ mod tests {
 
         let prover = MockProver::run(k, &circuit, public_input).unwrap();
         prover.assert_satisfied();
+    }
+
+    #[test]
+    fn draw_circuit() {
+        let k = 4;
+
+        let generator = pallas::Point::generator();
+        let generator_affine = EpAffine::from(generator);
+        let double_gen_affine = EpAffine::from(generator.double());
+
+        let x_val = generator_affine
+            .coordinates()
+            .map(|v| v.x().clone())
+            .unwrap();
+        let y_val = generator_affine
+            .coordinates()
+            .map(|v| v.y().clone())
+            .unwrap();
+
+        let _2x_val = double_gen_affine
+            .coordinates()
+            .map(|v| v.x().clone())
+            .unwrap();
+        let _2y_val = double_gen_affine
+            .coordinates()
+            .map(|v| v.y().clone())
+            .unwrap();
+
+        let circuit = TestCircuit {
+            p_x: Value::known(x_val),
+            p_y: Value::known(y_val),
+
+            q_x: Value::known(x_val),
+            q_y: Value::known(y_val),
+
+            r_x: Value::known(_2x_val),
+            r_y: Value::known(_2y_val),
+        };
 
         // Plot the circuit
         use plotters::prelude::*;
