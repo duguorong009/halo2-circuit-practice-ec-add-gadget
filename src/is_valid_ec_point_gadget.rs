@@ -42,7 +42,10 @@ impl<F: FieldExt> ValidECPointChip<F> {
             is_valid_expr =
                 y.square() - (x.clone() * x.square()) - Expression::Constant(F::from_u128(5));
 
-            vec![q_enable * is_valid_expr.clone()]
+            vec![
+                q_enable * x * is_valid_expr.clone(),
+                q_enable * y * is_valid_expr.clone(),
+            ]
         });
 
         ValidECPointConfig {
