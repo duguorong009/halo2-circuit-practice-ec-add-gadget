@@ -265,6 +265,40 @@ mod tests {
     }
 
     #[test]
+    fn test_ec_points_add_identity() {
+        let k = 4;
+
+        let identity_point = EpAffine::default();
+
+        let x_val = identity_point.coordinates().map(|v| v.x().clone()).unwrap();
+        let y_val = identity_point.coordinates().map(|v| v.y().clone()).unwrap();
+
+        let _2x_val = identity_point.coordinates().map(|v| v.x().clone()).unwrap();
+        let _2y_val = identity_point.coordinates().map(|v| v.y().clone()).unwrap();
+
+        println!("x_val: {:?}", x_val);
+        println!("y_val: {:?}", y_val);
+        println!("2x_val: {:?}", _2x_val);
+        println!("2y_val: {:?}", _2y_val);
+
+        let circuit = TestCircuit {
+            p_x: Value::known(x_val),
+            p_y: Value::known(y_val),
+
+            q_x: Value::known(x_val),
+            q_y: Value::known(y_val),
+
+            r_x: Value::known(_2x_val),
+            r_y: Value::known(_2y_val),
+        };
+
+        let public_input = vec![];
+
+        let prover = MockProver::run(k, &circuit, public_input).unwrap();
+        prover.assert_satisfied();
+    }
+
+    #[test]
     fn draw_circuit() {
         let k = 4;
 

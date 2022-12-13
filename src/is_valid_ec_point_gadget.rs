@@ -39,12 +39,15 @@ impl<F: FieldExt> ValidECPointChip<F> {
             let x = meta.query_advice(x, Rotation(offset));
             let y = meta.query_advice(y, Rotation(offset));
 
+            let y_squared = y.clone() * y.clone();
+            let x_squared = x.clone() * x.clone();
+
             is_valid_expr =
-                y.square() - (x.clone() * x.square()) - Expression::Constant(F::from_u128(5));
+                y_squared - (x.clone() * x_squared) - Expression::Constant(F::from_u128(5));
 
             vec![
-                q_enable * x * is_valid_expr.clone(),
-                q_enable * y * is_valid_expr.clone(),
+                (q_enable.clone() * x) * is_valid_expr.clone(),
+                (q_enable * y) * is_valid_expr.clone(),
             ]
         });
 
