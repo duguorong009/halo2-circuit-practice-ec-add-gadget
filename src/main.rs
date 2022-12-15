@@ -46,47 +46,47 @@ impl<F: FieldExt> ECPointsAddChip<F> {
 
         let valid_0 = ValidECPointChip::configure(
             meta,
-            |meta| meta.query_fixed(q_valid_check_enable, Rotation(0)),
+            |meta| meta.query_fixed(q_valid_check_enable, Rotation::prev()),
+            x,
+            y,
+            -1,
+        );
+        let valid_1 = ValidECPointChip::configure(
+            meta,
+            |meta| meta.query_fixed(q_valid_check_enable, Rotation::cur()),
             x,
             y,
             0,
         );
-        let valid_1 = ValidECPointChip::configure(
+        let valid_2 = ValidECPointChip::configure(
             meta,
-            |meta| meta.query_fixed(q_valid_check_enable, Rotation(1)),
+            |meta| meta.query_fixed(q_valid_check_enable, Rotation::next()),
             x,
             y,
             1,
-        );
-        let valid_2 = ValidECPointChip::configure(
-            meta,
-            |meta| meta.query_fixed(q_valid_check_enable, Rotation(2)),
-            x,
-            y,
-            2,
         );
 
         meta.create_gate("P(x, y) + Q(x, y) = R(x, y)", |meta| {
             //
             //   q_add_enable  |  q_valid_check_enable |   x   |   y   |   offset   |
             //  ---------------------------------------------------------------------
-            //        1        |         1             |  p_x  |  p_y  |     0      |
-            //        0        |         1             |  q_x  |  q_y  |     1      |
-            //        0        |         1             |  r_x  |  r_y  |     2      |
+            //        0        |         1             |  p_x  |  p_y  |     -1     |
+            //        1        |         1             |  q_x  |  q_y  |     0      |
+            //        0        |         1             |  r_x  |  r_y  |     1      |
             //
 
             let q_add_enable = meta.query_selector(q_add_enable);
 
-            let q_valid_check_enable_0 = meta.query_fixed(q_valid_check_enable, Rotation(0));
-            let q_valid_check_enable_1 = meta.query_fixed(q_valid_check_enable, Rotation(1));
-            let q_valid_check_enable_2 = meta.query_fixed(q_valid_check_enable, Rotation(2));
+            let q_valid_check_enable_0 = meta.query_fixed(q_valid_check_enable, Rotation::prev());
+            let q_valid_check_enable_1 = meta.query_fixed(q_valid_check_enable, Rotation::cur());
+            let q_valid_check_enable_2 = meta.query_fixed(q_valid_check_enable, Rotation::next());
 
-            let p_x = meta.query_advice(x, Rotation(0));
-            let p_y = meta.query_advice(y, Rotation(0));
-            let q_x = meta.query_advice(x, Rotation(1));
-            let q_y = meta.query_advice(y, Rotation(1));
-            let r_x = meta.query_advice(x, Rotation(2));
-            let r_y = meta.query_advice(y, Rotation(2));
+            let p_x = meta.query_advice(x, Rotation::prev());
+            let p_y = meta.query_advice(y, Rotation::prev());
+            let q_x = meta.query_advice(x, Rotation::cur());
+            let q_y = meta.query_advice(y, Rotation::cur());
+            let r_x = meta.query_advice(x, Rotation::next());
+            let r_y = meta.query_advice(y, Rotation::next());
 
             // EC point add formula: https://trustica.cz/en/2018/03/15/elliptic-curves-point-addition/
             //      d = (q_y - p_y) / (q_x - p_x)
@@ -130,7 +130,7 @@ impl<F: FieldExt> ECPointsAddChip<F> {
         layouter.assign_region(
             || "Assign points",
             |mut region| {
-                self.config.q_add_enable.enable(&mut region, 0)?;
+                self.config.q_add_enable.enable(&mut region, 1)?;
 
                 region.assign_advice(|| "p_x", self.config.x, 0, || p_x)?;
                 region.assign_advice(|| "p_y", self.config.y, 0, || p_y)?;

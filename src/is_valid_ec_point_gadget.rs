@@ -23,7 +23,7 @@ impl<F: FieldExt> ValidECPointChip<F> {
         q_enable: impl FnOnce(&mut VirtualCells<'_, F>) -> Expression<F>,
         x: Column<Advice>,
         y: Column<Advice>,
-        offset: usize,
+        offset: i32,
     ) -> ValidECPointConfig<F> {
         let mut is_valid_expr = Expression::Constant(F::zero());
 
@@ -36,8 +36,8 @@ impl<F: FieldExt> ValidECPointChip<F> {
             //
 
             let q_enable = q_enable(meta);
-            let x = meta.query_advice(x, Rotation(offset as i32));
-            let y = meta.query_advice(y, Rotation(offset as i32));
+            let x = meta.query_advice(x, Rotation(offset));
+            let y = meta.query_advice(y, Rotation(offset));
 
             is_valid_expr =
                 y.square() - (x.clone() * x.square()) - Expression::Constant(F::from_u128(5));
