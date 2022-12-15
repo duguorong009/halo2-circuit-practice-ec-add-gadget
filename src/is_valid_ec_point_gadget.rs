@@ -28,6 +28,7 @@ impl<F: FieldExt> ValidECPointChip<F> {
         let mut is_valid_expr = Expression::Constant(F::zero());
 
         meta.create_gate("is_valid_pasta_ec_point", |meta| {
+            //  Formula:  y^2 = x^3 - 5
             //
             // valid | x_value |  y_value  |   y^2 = x^3 + 5   |
             // -------------------------------------------------

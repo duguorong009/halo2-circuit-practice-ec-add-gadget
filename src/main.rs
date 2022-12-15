@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 
 use halo2_proofs::{
     arithmetic::FieldExt,
-    circuit::{floor_planner::V1, Layouter, Region, Value},
+    circuit::{floor_planner::V1, Layouter, Value},
     plonk::*,
     poly::Rotation,
 };
@@ -268,28 +268,36 @@ mod tests {
     fn test_ec_points_add_identity() {
         let k = 4;
 
+        let generator = pallas::Point::generator();
+        let generator_affine = EpAffine::from(generator);
+
+        let p_x = generator_affine
+            .coordinates()
+            .map(|v| v.x().clone())
+            .unwrap();
+        let p_y = generator_affine
+            .coordinates()
+            .map(|v| v.y().clone())
+            .unwrap();
+
         let identity_point = EpAffine::default();
+        let q_x = identity_point.coordinates().map(|v| v.x().clone()).unwrap();
+        let q_y = identity_point.coordinates().map(|v| v.y().clone()).unwrap();
 
-        let x_val = identity_point.coordinates().map(|v| v.x().clone()).unwrap();
-        let y_val = identity_point.coordinates().map(|v| v.y().clone()).unwrap();
-
-        let _2x_val = identity_point.coordinates().map(|v| v.x().clone()).unwrap();
-        let _2y_val = identity_point.coordinates().map(|v| v.y().clone()).unwrap();
-
-        println!("x_val: {:?}", x_val);
-        println!("y_val: {:?}", y_val);
-        println!("2x_val: {:?}", _2x_val);
-        println!("2y_val: {:?}", _2y_val);
+        println!("p_x: {:?}", p_x);
+        println!("p_y: {:?}", p_y);
+        println!("q_x: {:?}", q_x);
+        println!("q_y: {:?}", q_y);
 
         let circuit = TestCircuit {
-            p_x: Value::known(x_val),
-            p_y: Value::known(y_val),
+            p_x: Value::known(p_x),
+            p_y: Value::known(p_y),
 
-            q_x: Value::known(x_val),
-            q_y: Value::known(y_val),
+            q_x: Value::known(q_x),
+            q_y: Value::known(q_y),
 
-            r_x: Value::known(_2x_val),
-            r_y: Value::known(_2y_val),
+            r_x: Value::known(p_x),
+            r_y: Value::known(p_y),
         };
 
         let public_input = vec![];
