@@ -44,21 +44,21 @@ impl<F: FieldExt> ECPointsAddChip<F> {
         let q_add_enable = meta.selector();
         let q_valid_check_enable = meta.fixed_column();
 
-        let valid_0 = ValidECPointChip::configure(
+        let valid_p = ValidECPointChip::configure(
             meta,
             |meta| meta.query_fixed(q_valid_check_enable, Rotation::prev()),
             x,
             y,
             -1,
         );
-        let valid_1 = ValidECPointChip::configure(
+        let valid_q = ValidECPointChip::configure(
             meta,
             |meta| meta.query_fixed(q_valid_check_enable, Rotation::cur()),
             x,
             y,
             0,
         );
-        let valid_2 = ValidECPointChip::configure(
+        let valid_r = ValidECPointChip::configure(
             meta,
             |meta| meta.query_fixed(q_valid_check_enable, Rotation::next()),
             x,
@@ -77,9 +77,9 @@ impl<F: FieldExt> ECPointsAddChip<F> {
 
             let q_add_enable = meta.query_selector(q_add_enable);
 
-            let q_valid_check_enable_0 = meta.query_fixed(q_valid_check_enable, Rotation::prev());
-            let q_valid_check_enable_1 = meta.query_fixed(q_valid_check_enable, Rotation::cur());
-            let q_valid_check_enable_2 = meta.query_fixed(q_valid_check_enable, Rotation::next());
+            let q_valid_check_enable_p = meta.query_fixed(q_valid_check_enable, Rotation::prev());
+            let q_valid_check_enable_q = meta.query_fixed(q_valid_check_enable, Rotation::cur());
+            let q_valid_check_enable_r = meta.query_fixed(q_valid_check_enable, Rotation::next());
 
             let p_x = meta.query_advice(x, Rotation::prev());
             let p_y = meta.query_advice(y, Rotation::prev());
@@ -97,9 +97,9 @@ impl<F: FieldExt> ECPointsAddChip<F> {
             //      q_add_enable * ((r_x + q_x + p_x) * (p_x - q_x) ^ 2 - (p_y - q_y)^2) = 0
             //      q_add_enable * ((r_y + q_y)*(p_x - q_x) - (p_y - q_y)*(q_x - r_x)) = 0
             vec![
-                q_valid_check_enable_0 * valid_0.is_valid_expr,
-                q_valid_check_enable_1 * valid_1.is_valid_expr,
-                q_valid_check_enable_2 * valid_2.is_valid_expr,
+                q_valid_check_enable_p * valid_p.is_valid_expr,
+                q_valid_check_enable_q * valid_q.is_valid_expr,
+                q_valid_check_enable_r * valid_r.is_valid_expr,
                 q_add_enable.clone()
                     * ((r_x.clone() + q_x.clone() + p_x.clone())
                         * (p_x.clone() - q_x.clone()).square()
